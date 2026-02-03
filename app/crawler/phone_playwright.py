@@ -1,10 +1,9 @@
-# app/crawler/phone_playwright.py
 import re
 from typing import Optional
 
 from playwright.async_api import async_playwright, TimeoutError as PWTimeoutError
 
-PHONE_RE = re.compile(r"(?:\+?38)?0?\d{9}")  # грубо ловим UA формат
+PHONE_RE = re.compile(r"(?:\+?38)?0?\d{9}")
 
 
 def _digits_only(s: str) -> str:
@@ -16,17 +15,13 @@ def _normalize_phone(raw: str) -> Optional[int]:
     if not digits:
         return None
 
-    # варианты:
-    # 0XXXXXXXXX (10) -> 38 + ...
-    # 380XXXXXXXXX (12) -> ok
-    # +380... -> digits already 380...
     if len(digits) == 10 and digits.startswith("0"):
         digits = "38" + digits
 
     if len(digits) == 12 and digits.startswith("38"):
         return int(digits)
 
-    # если где-то внутри проскочило 380...
+
     m = re.search(r"38\d{10}", digits)
     if m:
         return int(m.group(0))
@@ -46,12 +41,10 @@ async def _click_if_exists(page, selector: str, timeout_ms: int = 1500) -> bool:
 
 
 async def _accept_banners(page) -> None:
-    # 1) Нотифаер/баннер (часто мешает клику)
     await _click_if_exists(page, "label[for='c-notifier-close']", 1500)
     await _click_if_exists(page, "#c-notifier-close", 1500)
 
-    # 2) Funding Choices / consent (fc-*)
-    # ВАЖНО: иногда кнопка не button, а div с role=button — поэтому несколько вариантов
+
     candidates = [
         "button.fc-cta-consent",
         "button[class*='fc-cta-consent']",
@@ -73,12 +66,6 @@ async def _accept_banners(page) -> None:
 
 
 async def get_phone_via_playwright(url: str) -> Optional[int]:
-    """
-    Рабочий подход под твой кейс:
-    - НЕ ищем #autoPhone (его нет в DOM)
-    - кликаем "показати" рядом с замаскированным номером (span.mhide + a)
-    - читаем номер из DOM после раскрытия
-    """
     async with async_playwright() as p:
         browser = await p.chromium.launch(headless=True)
         context = await browser.new_context(
@@ -98,15 +85,12 @@ async def get_phone_via_playwright(url: str) -> Optional[int]:
             # баннеры/куки
             await _accept_banners(page)
 
-            # чуть скроллим, чтобы блок контактов дорендерился
             await page.mouse.wheel(0, 900)
             await page.wait_for_timeout(500)
 
-            # Ключевой селектор: на AutoRia обычно так:
-            # <span class="mhide">***</span><a>показати</a>
             show_link = page.locator("span.mhide + a")
 
-            # fallback-и, если верстка другая
+
             show_fallbacks = [
                 "a:has-text('показати')",
                 "a:has-text('Показати')",
@@ -140,17 +124,16 @@ async def get_phone_via_playwright(url: str) -> Optional[int]:
             if not clicked:
                 return None
 
-            # После клика телефон обычно появляется в блоке list-phone
-            # Пробуем несколько точек, где он реально всплывает.
+
             phone_locators = [
-                "div.list-phone",                              # общий контейнер
-                "div.list-phone div",                          # внутри часто лежит номер
-                "div.list-phone a:nth-of-type(2) + div",       # как в реальном примере
+                "div.list-phone",
+                "div.list-phone div",
+                "div.list-phone a:nth-of-type(2) + div",
                 "div.list-phone strong",
                 "a[href^='tel:']",
             ]
 
-            # ждём до 12 секунд, проверяя разные локаторы
+
             for _ in range(24):
                 for sel in phone_locators:
                     loc = page.locator(sel)
@@ -167,7 +150,7 @@ async def get_phone_via_playwright(url: str) -> Optional[int]:
 
                 await page.wait_for_timeout(500)
 
-            # последний шанс: поиск по всему HTML
+
             html = await page.content()
             m = PHONE_RE.search(html)
             if m:

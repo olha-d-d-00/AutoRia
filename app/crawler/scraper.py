@@ -1,8 +1,4 @@
-from typing import List, Optional
-
-import httpx
-from bs4 import BeautifulSoup
-
+from typing import Optional
 import asyncio
 from typing import List
 import httpx
@@ -25,9 +21,9 @@ async def get_html(client: httpx.AsyncClient, url: str, retries: int = 3) -> str
             return r.text
         except (httpx.ReadTimeout, httpx.ConnectTimeout, httpx.RemoteProtocolError) as e:
             last_err = e
-            await asyncio.sleep(0.8 * attempt)  # лёгкий backoff
+            await asyncio.sleep(0.8 * attempt)
         except httpx.HTTPStatusError as e:
-            # 403/404/5xx — тоже не валим весь прогон
+
             last_err = e
             await asyncio.sleep(0.5 * attempt)
 
@@ -75,7 +71,7 @@ async def scrape_list_pages(limit_pages: int | None = None) -> List[str]:
             else:
                 result.append(BASE + u)
 
-        # фильтр: только б/у карточки
+
         result = [u for u in result if "/uk/auto_" in u and "/newauto/" not in u]
         return result
 
@@ -86,12 +82,7 @@ async def fetch_phone_number(
     expires: int,
     hash_: str,
 ) -> Optional[str]:
-    """
-    Рабочий сценарий AutoRia: телефон выдаётся через endpoint:
-    https://auto.ria.com/users/phones/{auto_id}?expires=...&hash=...
 
-    Возвращаем телефон цифрами (строкой), например: "380631234567"
-    """
     url = f"{BASE}/users/phones/{auto_id}?expires={expires}&hash={hash_}"
     r = await client.get(url, headers=HEADERS, timeout=30)
     if r.status_code != 200:

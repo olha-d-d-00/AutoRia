@@ -14,7 +14,7 @@ def dump_db():
     env = os.environ.copy()
     env["PGPASSWORD"] = DB_PASSWORD
 
-    # pg_dump -> gzip -> файл
+
     cmd = (
         f"pg_dump -h {DB_HOST} -p {DB_PORT} -U {DB_USER} -d {DB_NAME} | gzip > {out_file}"
     )

@@ -24,9 +24,6 @@ def _digits_only(s: str) -> str:
 
 
 def _pick_vehicle_jsonld(html: str) -> Dict[str, Any]:
-    """
-    Берём JSON-LD Vehicle с максимальным "смыслом".
-    """
     soup = BeautifulSoup(html, "html.parser")
     best_obj = None
     best_score = -1
@@ -99,12 +96,10 @@ def _extract_images_count(soup: BeautifulSoup, vehicle: Dict[str, Any], html: st
 
 
 def _extract_username(html: str) -> Optional[str]:
-    # как ["userName","Volkswagen Центр"]
     m = re.search(r'\["userName"\s*,\s*"([^"]+)"\]', html)
     if m:
         return m.group(1).strip()
 
-    # как "userName":"..."
     m = re.search(r'"userName"\s*:\s*"([^"]+)"', html)
     if m:
         return m.group(1).strip()
@@ -147,19 +142,6 @@ def _extract_auto_id(html: str, vehicle: Dict[str, Any]) -> Optional[int]:
 
 
 def _extract_expires_hash(html: str) -> tuple[Optional[str], Optional[str]]:
-    """
-    Достаём expires/hash для вызова:
-      /users/phones/{auto_id}?expires=...&hash=...
-
-    На AutoRia встречаются разные формы:
-      - "expires":123456, "hash":"abcd..."
-      - expires=123456&hash=abcd...
-      - hash лежит в JSON как \"hash\":\"...\" (экранировано)
-      - hash может быть без кавычек, рядом с expires
-      - expires может называться expiresAt/expire/exp
-
-    Возвращает (expires, hash) либо (None, None).
-    """
     expires = None
     hash_ = None
 
@@ -180,7 +162,6 @@ def _extract_expires_hash(html: str) -> tuple[Optional[str], Optional[str]]:
             expires = m.group(1)
             break
 
-    # 2) hash/token/signature: разные ключи + экранированные формы
     hash_patterns = [
         r'"hash"\s*:\s*"([^"]+)"',
         r'\\?"hash\\?"\s*:\s*\\?"([^"\\]+)\\?"',     # \"hash\":\"...\"
@@ -190,7 +171,6 @@ def _extract_expires_hash(html: str) -> tuple[Optional[str], Optional[str]]:
         r'\\?"signature\\?"\s*:\s*\\?"([^"\\]+)\\?"',
         r'"sign"\s*:\s*"([^"]+)"',
         r'\\?"sign\\?"\s*:\s*\\?"([^"\\]+)\\?"',
-        # иногда бывает без кавычек (редко)
         r'"hash"\s*:\s*([a-f0-9]{16,})',
         r'\\?"hash\\?"\s*:\s*([a-f0-9]{16,})',
     ]
@@ -200,7 +180,6 @@ def _extract_expires_hash(html: str) -> tuple[Optional[str], Optional[str]]:
             hash_ = m.group(1)
             break
 
-    # 3) query-string форма (часто встречается прямо в ссылках/данных)
     if not expires or not hash_:
         m = re.search(
             r'(?:expires|expiresAt|expire|exp)=(\d+).*?(?:hash|token|signature|sign)=([a-f0-9]{16,})',
@@ -211,7 +190,6 @@ def _extract_expires_hash(html: str) -> tuple[Optional[str], Optional[str]]:
             expires = expires or m.group(1)
             hash_ = hash_ or m.group(2)
 
-    # 4) финальная чистка (на случай мусора)
     if expires is not None and not expires.isdigit():
         expires = None
     if hash_ is not None:
@@ -229,10 +207,7 @@ async def _fetch_phone_number(
     expires: str,
     hash_: str,
 ) -> Optional[int]:
-    """
-    Рабочий эндпоинт:
-    https://auto.ria.com/users/phones/{auto_id}?expires=...&hash=...
-    """
+
     url = f"https://auto.ria.com/users/phones/{auto_id}?expires={expires}&hash={hash_}"
 
     headers = {
@@ -251,7 +226,7 @@ async def _fetch_phone_number(
     except Exception:
         return None
 
-    # варианты полей (бывает по-разному)
+
     raw = None
     if isinstance(data, dict):
         raw = (
@@ -264,7 +239,7 @@ async def _fetch_phone_number(
     if not digits:
         return None
 
-    # нормализация UA
+
     if len(digits) == 10 and digits.startswith("0"):
         digits = "38" + digits
 
