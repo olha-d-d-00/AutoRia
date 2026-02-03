@@ -1,0 +1,35 @@
+services:
+  db:
+    image: postgres:15
+    container_name: autoria_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: autoria
+      POSTGRES_USER: autoria
+      POSTGRES_PASSWORD: autoria
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./db/docker-entrypoint-initdb.d:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U autoria -d autoria"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  app:
+    build: .
+    container_name: autoria_app
+    restart: unless-stopped
+    env_file:
+      - .env
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./dumps:/app/dumps
+    command: python -u run.py
+
+volumes:
+  postgres_data:

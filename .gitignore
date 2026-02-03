@@ -1,0 +1,17 @@
+# env
+.env
+.env.*
+!.env.example
+
+# python
+.venv/
+__pycache__/
+*.pyc
+
+# dumps & debug artifacts
+dumps/
+*.sql
+*.sql.gz
+_before_click.png
+_after_click.png
+_dom_probe.png
